@@ -1,27 +1,28 @@
-# LiveTL
-[![Tests](https://github.com/LiveTL/extension/actions/workflows/tests.yaml/badge.svg)](https://github.com/LiveTL/extension/actions/workflows/tests.yaml)
+# HyperChat - Optimized YouTube Chat
+YouTube chat, but it's fast and sleek!
 
-## Development
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+[![js-semistandard-style](https://img.shields.io/badge/code%20style-semistandard-brightgreen.svg)](https://github.com/standard/semistandard)
+[![Contributors](https://img.shields.io/github/contributors/LiveTL/HyperChat)](https://github.com/LiveTL/HyperChat/contributors)
+[![Issues](https://img.shields.io/github/issues/LiveTL/HyperChat)](https://github.com/LiveTL/HyperChat/issues)
+![Total Lines](https://img.shields.io/tokei/lines/github/LiveTL/HyperChat)
+![Size](https://img.shields.io/github/repo-size/LiveTL/HyperChat)
+[![Commit Activity](https://img.shields.io/github/commit-activity/w/LiveTL/HyperChat)](https://github.com/LiveTL/HyperChat/commits/)
+[![Discord](https://img.shields.io/discord/780938154437640232.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/uJrV3tmthg)
 
-### Setup
+## Building from Source
+Clone the repository recursively:
 ```bash
-yarn # use yarn, not npm
+git clone https://github.com/LiveTL/HyperChat --recursive
 ```
-
-### Commands
-#### Variables
+Open the repository and npm install:
 ```bash
-# defaults:
-PORT=3000
-NODE_ENV=development
+cd hyperchat
+yarn
 ```
+Build or serve the extension:
 ```bash
-yarn start # dev
 yarn build # prod
+yarn start # dev
 yarn test  # jest
-yarn test:watch # autotest
 ```
-Load the `build` directory in Chrome developer mode.
-
-### Hot Reload
-Enable `chrome://flags/#allow-insecure-localhost`
