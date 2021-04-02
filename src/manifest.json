@@ -1,21 +1,27 @@
 {
-  "manifest_version": 2,
-  "name": "__MSG_extName__",
-  "homepage_url": "http://localhost:8080/",
-  "description": "YouTube chat, but it's fast and sleek!",
-  "default_locale": "en",
+  "name": "Chrome Extension Svelte",
+  "options_page": "options.html",
   "permissions": [
+    "storage",
+    "webRequest",
+    "webRequestBlocking",
+    "https://www.youtube.com/*?*",
+    "https://www.youtube.com/youtubei/v1/live_chat/get_live_chat/*",
+    "https://www.youtube.com/youtubei/v1/live_chat/get_live_chat_replay/*"
   ],
-  "icons": {
-    "32": "icons/32x32.png",
-    "128": "icons/128x128.png"
-  },
   "background": {
-    "scripts": [
-      "js/background.js"
-    ],
+    "page": "background.html",
     "persistent": true
   },
+  "icons": {
+    "128": "icon-128.png"
+  },
+  "browser_action": {
+    "default_popup": "options.html",
+    "default_icon": "icon-34.png"
+  },
+  "manifest_version": 2,
+  "content_security_policy": "script-src 'self' https://www.youtube.com 'unsafe-eval'; object-src 'self'",
   "content_scripts": [
     {
       "matches": [
@@ -23,19 +29,15 @@
         "https://www.youtube.com/live_chat_replay*"
       ],
       "js": [
-        "js/chat.js"
+        "injector.bundle.js",
+        "interceptor.bundle.js"
       ],
       "all_frames": true
     }
   ],
-  "browser_action": {
-    "default_title": "__MSG_extName__",
-    "default_icon": {
-      "32": "icons/32x32.png",
-      "128": "icons/128x128.png"
-    }
-  },
   "web_accessible_resources": [
-    "*"
+    "*.js",
+    "*.html",
+    "*.png"
   ]
 }
