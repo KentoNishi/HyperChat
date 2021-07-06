@@ -5,12 +5,13 @@ module.exports = {
     browserExtension: {
       componentOptions: {
         background: {
-          entry: 'src/background.js'
+          entry: 'src/submodules/chat/scripts/chat-background.js'
         },
         contentScripts: {
           entries: {
             chat: [
-              'src/submodules/chat/scripts/chat.js'
+              'src/submodules/chat/scripts/chat.js',
+              'src/submodules/chat/scripts/chat-interceptor.js'
             ]
           }
         }
