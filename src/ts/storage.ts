@@ -75,6 +75,9 @@ export const alertDialog = writable(null as null | {
   color: string;
 });
 export const stickySuperchats = writable([] as Ytc.ParsedTicker[]);
+export const activeReplyThreadId = writable<string | null>(null);
+export const liveReplyBuffer = writable<Ytc.ParsedMessage[]>([]);
+export const liveLikeCounts = writable(new Map<string, number>());
 export const isDark = derived(theme, ($theme) => {
   return $theme === Theme.DARK || (
     $theme === Theme.YOUTUBE && window.location.search.includes('dark')
@@ -84,5 +87,6 @@ export const ytDark = writable(false);
 export const currentProgress = writable(null as null | number);
 export const enableStickySuperchatBar = stores.addSyncStore('hc.enableStickySuperchatBar', true);
 export const enableHighlightedMentions = stores.addSyncStore('hc.enableHighlightedMentions', true);
+export const showSuperchatReplyIndicators = stores.addSyncStore('hc.showSuperchatReplyIndicators', true);
 export const lastOpenedVersion = stores.addSyncStore('hc.lastOpenedVersion', '');
 export const bytesUsed = stores.addSyncStore('hc.bytes.used', 0);

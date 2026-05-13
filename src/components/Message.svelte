@@ -9,19 +9,23 @@
     showUserBadges,
     hoveredItem,
     port,
-    selfChannelId
+    selfChannelId,
+    showSuperchatReplyIndicators,
+    stickySuperchats,
+    focusedSuperchat
   } from '../ts/storage';
   import { chatUserActionsItems, ChatUserActions, Theme } from '../ts/chat-constants';
   import { useBanHammer } from '../ts/chat-actions';
   import type { Chat } from '../ts/typings/chat';
   import { formatAuthorName } from '../ts/component-utils';
-  import { mdiGift } from '@mdi/js';
+  import { mdiGift, mdiReply } from '@mdi/js';
 
   export let message: Ytc.ParsedMessage;
   export let deleted: Chat.MessageDeletedObj | null = null;
   export let forceDark = false;
   export let hideName = false;
   export let hideDropdown = false;
+  export let hideReplyIndicator = false;
 
   const nameClass = 'font-bold tracking-wide align-middle';
   const generateNameColorClass = (member: boolean, moderator: boolean, owner: boolean, forceDark: boolean) => {
@@ -79,6 +83,13 @@
     value: d.value.toString(),
     onClick: () => useBanHammer(message, d.value, $port)
   }));
+
+  const openReplyTargetSuperchat = () => {
+    const threadId = message.replyToSuperchat?.threadId;
+    const match = threadId ? $stickySuperchats.find((s) => s.threadId === threadId) : undefined;
+    if (!threadId || !match) return;
+    $focusedSuperchat = match;
+  };
 </script>
 
 <!-- svelte-ignore a11y-mouse-events-have-key-events -->
@@ -141,6 +152,30 @@
         {/if}
       </span>
       <span class="mr-1.5" class:hidden={!showUserMargin} />
+    {/if}
+    {#if message.replyToSuperchat && $showSuperchatReplyIndicators && !hideReplyIndicator}
+      <!-- svelte-ignore a11y-click-events-have-key-events -->
+      <span
+        class="inline-flex items-center justify-center align-middle cursor-pointer rounded"
+        style={
+          'width: 1.6em; height: 1.6em;' +
+          (message.replyToSuperchat.bgColor ? ` background-color: #${message.replyToSuperchat.bgColor};` : '') +
+          (message.replyToSuperchat.fgColor ? ` color: #${message.replyToSuperchat.fgColor};` : ' color: inherit;')
+        }
+        role="button"
+        tabindex="0"
+        aria-label={`Open Super Chat by ${message.replyToSuperchat.authorName}`}
+        title={`Open Super Chat by ${message.replyToSuperchat.authorName}`}
+        on:click|stopPropagation={openReplyTargetSuperchat}
+      >
+        <svg
+          height="1.2em"
+          width="1.2em"
+          viewBox="0 0 24 24"
+        >
+          <path d={mdiReply} fill="currentColor"/>
+        </svg>
+      </span>
     {/if}
     <MessageRun
       runs={message.message}

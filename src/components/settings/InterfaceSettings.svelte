@@ -12,7 +12,8 @@
     isDark,
     enableStickySuperchatBar,
     enableHighlightedMentions,
-    showChatSummary
+    showChatSummary,
+    showSuperchatReplyIndicators
   } from '../../ts/storage';
   import { themeItems, emojiRenderItems } from '../../ts/chat-constants';
   import Card from '../common/Card.svelte';
@@ -62,6 +63,7 @@
   <Checkbox name="Show user badges" store={showUserBadges} />
   <Checkbox name="Show experimental chat summaries by YouTube" store={showChatSummary} />
   <Checkbox name="Highlight mentions" store={enableHighlightedMentions} />
+  <Checkbox name="Show superchat reply indicator" store={showSuperchatReplyIndicators} />
 </Card>
 
 <Card title="Emojis" icon="emoji_emotions">

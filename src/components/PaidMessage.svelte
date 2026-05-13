@@ -3,7 +3,7 @@
   import isDarkColor from 'is-dark-color';
   import { Theme } from '../ts/chat-constants';
   import { formatAuthorName } from '../ts/component-utils';
-  import { showProfileIcons } from '../ts/storage';
+  import { showProfileIcons, showTimestamps } from '../ts/storage';
 
   export let message: Ytc.ParsedMessage;
 
@@ -22,7 +22,8 @@
     headerStyle = '';
   }
 
-  const classes = 'inline-flex flex-col rounded break-words overflow-hidden w-full';
+  const classes = 'inline-flex flex-col rounded break-words w-full';
+  $: hasBody = message.message.length > 0 || !!message.superSticker;
   $: displayAuthorName = formatAuthorName(message.author.name);
 
   $: if (!paid) {
@@ -36,7 +37,7 @@
 
 {#if paid}
   <div class={classes} style={backgroundColor + textColor}>
-    <div class="p-2" style={headerStyle}>
+    <div class="p-2 {hasBody ? 'rounded-t' : 'rounded'}" style={headerStyle}>
       {#if $showProfileIcons}
         <img
           class="h-5 w-5 inline align-middle rounded-full flex-none mr-1"
@@ -44,18 +45,23 @@
           alt={message.author.profileIcon.alt}
         />
       {/if}
-      <span class="mr-1 underline font-bold">{amount}</span>
-      <span class="font-bold tracking-wide" style={nameColor}>
+      {#if $showTimestamps}
+        <span class="mr-1 text-xs opacity-75 align-middle">{message.timestamp}</span>
+      {/if}
+      <span class="font-bold tracking-wide align-middle" style={nameColor}>
         {displayAuthorName}
       </span>
-      {#if message.superSticker}
+      <span class="float-right underline font-bold align-middle ml-2">{amount}</span>
+    </div>
+    {#if message.superSticker}
+      <div class="p-2">
         <img
-          class="h-10 w-10 float-right"
+          class="h-full w-auto max-h-20"
           src={message.superSticker.src}
           alt={message.superSticker.alt}
           title={message.superSticker.alt} />
-      {/if}
-    </div>
+      </div>
+    {/if}
     {#if message.message.length > 0}
       <div class="p-2">
         <Message message={message} hideName forceTLColor={darkEval()} />

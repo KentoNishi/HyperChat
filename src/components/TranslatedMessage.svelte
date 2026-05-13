@@ -20,7 +20,8 @@
     });
   }
 
-  $: showTL = Boolean(translatedMessage && !showOriginal && translatedMessage.trim() !== text.trim());
+  $: hasTranslation = Boolean(translatedMessage && translatedMessage.trim() !== text.trim());
+  $: showTL = hasTranslation && !showOriginal;
 
   $: if ($translateTargetLanguage !== translatedLanguage) {
     translatedMessage = '';
@@ -30,34 +31,31 @@
   $: translatedColor = forceTLColor === Theme.DARK
     ? 'text-translated-dark'
     : `text-translated-light ${forceTLColor === Theme.YOUTUBE ? 'dark:text-translated-dark' : ''}`;
+
 </script>
 
+<!-- Comments absorb indentation whitespace that would leak between adjacent text runs.
+     The translate icon's visual gap is provided by margin on .material-icons in the style block. -->
 <span
   class={showTL ? translatedColor : ''}
-  class:cursor-pointer={translatedMessage}
-  class:entrance-animation={translatedMessage}
+  class:cursor-pointer={hasTranslation}
+  class:entrance-animation={hasTranslation}
   on:click={() => {
-    if (translatedMessage) {
+    if (hasTranslation) {
       showOriginal = !showOriginal;
       $refreshScroll = true;
     }
   }}
->
-  <span>
-    {showTL ? translatedMessage : text}
-  </span>
-
-  {#if translatedMessage}
-    <span class="shifted-icon">
-      <Icon xs={true} block={false}>
-        translate
-      </Icon>
-    </span>
-  {/if}
-</span>
+><!--
+-->{showTL ? translatedMessage : text}<!--
+-->{#if hasTranslation}<!--
+  --><span class="shifted-icon"><Icon xs={true} block={false}>translate</Icon></span><!--
+-->{/if}<!--
+--></span>
 
 <style>
   .shifted-icon  :global(.material-icons) {
     transform: translateY(1px);
+    margin: 0 0.25em;
   }
 </style>

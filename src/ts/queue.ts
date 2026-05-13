@@ -245,6 +245,9 @@ export function ytcQueue(isReplay = false): YtcQueue {
     bonks.forEach((bonk) => latestAction.set({ type: 'bonk', bonk }));
     deletions.forEach((deletion) => latestAction.set({ type: 'delete', deletion }));
     misc.forEach((action) => latestAction.set(action));
+    if (chunk.likeCounts && Object.keys(chunk.likeCounts).length > 0) {
+      latestAction.set({ type: 'likeCounts', counts: chunk.likeCounts });
+    }
   };
 
   const addJsonToQueue = (

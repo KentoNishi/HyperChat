@@ -4,8 +4,7 @@ import {
   isMembershipRenderer,
   isMembershipGiftPurchaseRenderer
 } from './chat-utils';
-
-const currentDomain = location.protocol.includes('youtube') ? (location.protocol + '//' + location.host) : 'https://www.youtube.com';
+import { currentDomain, replyThreadPanelTag } from './chat-constants';
 
 // Source: https://stackoverflow.com/a/64396666
 const standardEmoji =
@@ -17,6 +16,68 @@ const formatTimestamp = (timestampUsec: number): string => {
 };
 
 const colorToHex = (color: number): string => color.toString(16).slice(-6);
+
+const SC_THREAD_ID_LENGTH = 35;
+
+// YT mixes URL-safe (`-`,`_`) and standard (`+`,`/`) base64 across fields; normalize before atob.
+const decodeBase64 = (input: string): string | undefined => {
+  try {
+    return atob(decodeURIComponent(input).replace(/-/g, '+').replace(/_/g, '/'));
+  } catch {
+    return;
+  }
+};
+
+// SC entity keys are proto bytes shaped like 0x12 0x23 <35-byte ASCII id> ... .
+const extractThreadIdFromEntityKey = (key: string | undefined): string | undefined => {
+  if (!key) return;
+  const decoded = decodeBase64(key);
+  if (!decoded) return;
+  if (decoded.charCodeAt(0) !== 0x12 || decoded.charCodeAt(1) !== SC_THREAD_ID_LENGTH) return;
+  return decoded.slice(2, 2 + SC_THREAD_ID_LENGTH);
+};
+
+// Reply-thread params are proto bytes that contain the SC's thread id as a length-prefixed string
+// field, marked by the byte pair 0x0A 0x23 (proto field 1, length 35).
+const extractThreadIdFromParams = (params: string | undefined): string | undefined => {
+  if (!params) return;
+  const decoded = decodeBase64(params);
+  if (!decoded) return;
+  for (let i = 0; i <= decoded.length - (2 + SC_THREAD_ID_LENGTH); i++) {
+    if (decoded.charCodeAt(i) === 0x0A && decoded.charCodeAt(i + 1) === SC_THREAD_ID_LENGTH) {
+      return decoded.slice(i + 2, i + 2 + SC_THREAD_ID_LENGTH);
+    }
+  }
+};
+
+interface ReplyButtonInfo {
+  params: string;
+  authorName?: string;
+  bgColor?: string;
+  fgColor?: string;
+}
+
+const extractReplyButton = (
+  button: Ytc.ReplyButtonViewModel | undefined
+): ReplyButtonInfo | undefined => {
+  if (!button) return;
+  const endpoint = button.onTap?.innertubeCommand?.showEngagementPanelEndpoint;
+  if (endpoint?.identifier?.tag !== replyThreadPanelTag) return;
+  const params = endpoint.globalConfiguration?.params;
+  if (!params) return;
+  return {
+    params,
+    authorName: button.title,
+    bgColor: button.customBackgroundColor != null ? colorToHex(button.customBackgroundColor) : undefined,
+    fgColor: button.customFontColor != null ? colorToHex(button.customFontColor) : undefined
+  };
+};
+
+const parseReplyThreadButton = (
+  renderer: Ytc.TextMessageRenderer
+): ReplyButtonInfo | undefined =>
+  extractReplyButton(renderer.beforeContentButtons?.[0]?.buttonViewModel) ??
+  extractReplyButton(renderer.replyButton?.pdgReplyButtonViewModel?.replyButton?.buttonViewModel);
 
 const fixUrl = (url: string): string => {
   if (url.startsWith('//')) {
@@ -204,6 +265,29 @@ const parseAddChatItemAction = (action: Ytc.AddChatItemAction, isReplay = false,
     item.author.url = `${currentDomain}/channel/${channelId}`;
   }
 
+  const replyButton = parseReplyThreadButton(messageRenderer);
+  if (replyButton) {
+    if (isPaidMessageRenderer(renderer) || isPaidStickerRenderer(renderer)) {
+      item.replyThreadParams = replyButton.params;
+    } else if (replyButton.authorName) {
+      item.replyToSuperchat = {
+        authorName: replyButton.authorName,
+        params: replyButton.params,
+        threadId: extractThreadIdFromParams(replyButton.params),
+        bgColor: replyButton.bgColor,
+        fgColor: replyButton.fgColor
+      };
+    }
+  }
+
+  if (isPaidMessageRenderer(renderer) || isPaidStickerRenderer(renderer)) {
+    const replyEntityKey = messageRenderer.replyButton?.pdgReplyButtonViewModel?.replyCountEntityKey;
+    const likeEntityKey = messageRenderer.pdgLikeButton?.pdgLikeViewModel?.likeCountEntityKey;
+    if (likeEntityKey) item.likeCountEntityKey = likeEntityKey;
+    const entityKey = replyEntityKey ?? likeEntityKey;
+    if (entityKey) item.threadId = extractThreadIdFromEntityKey(entityKey);
+  }
+
   if (isPaidMessageRenderer(renderer)) {
     item.superChat = {
       amount: renderer.purchaseAmountText.simpleText,
@@ -339,6 +423,13 @@ const parseTickerAction = (action: Ytc.AddTickerAction, isReplay: boolean, liveT
     item: baseRenderer.showItemEndpoint.showLiveChatItemEndpoint.renderer
   }, isReplay, liveTimeoutOrReplayMs);
   if (!parsedMessage) return;
+  // Some tickers carry the reply-thread params at the ticker level instead of on the inner SC renderer.
+  if (!parsedMessage.replyThreadParams && 'openEngagementPanelCommand' in baseRenderer) {
+    const endpoint = baseRenderer.openEngagementPanelCommand?.showEngagementPanelEndpoint;
+    if (endpoint?.identifier?.tag === replyThreadPanelTag && endpoint.globalConfiguration?.params) {
+      parsedMessage.replyThreadParams = endpoint.globalConfiguration.params;
+    }
+  }
   return {
     type: 'ticker',
     ...parsedMessage,
@@ -451,12 +542,21 @@ export const parseChatResponse = (response: string, isReplay: boolean): Ytc.Pars
   const refresh = base.clientMessages != null;
   if (!isReplay && !refresh) cheatTimestamps(messageArray);
 
+  const likeCounts: Record<string, number> = {};
+  parsedResponse.frameworkUpdates?.entityBatchUpdate?.mutations?.forEach((mutation) => {
+    const entity = mutation.payload?.likeCountEntity;
+    if (!entity?.key || entity.likeCountIfIndifferentNumber == null) return;
+    const n = parseInt(entity.likeCountIfIndifferentNumber);
+    if (!Number.isNaN(n)) likeCounts[entity.key] = n;
+  });
+
   return {
     messages: messageArray,
     bonks: bonkArray,
     deletions: deleteArray,
     miscActions: miscArray,
     isReplay,
-    refresh
+    refresh,
+    ...(Object.keys(likeCounts).length > 0 ? { likeCounts } : {})
   };
 };
