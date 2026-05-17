@@ -73,14 +73,6 @@
     cursor: pointer;
     transition: box-shadow 0.2s;
   }
-  .toggleButton .floating-icon {
-    position: absolute;
-    bottom: 5px;
-    right: 3px;
-    width: 15px;
-    height: 15px;
-  }
-
   .toggleButton.disabled {
     color: var(--yt-live-chat-secondary-text-color);
   }
