@@ -19,6 +19,12 @@ module.exports = {
   ],
   overrides: [
     {
+      files: ['*.js', 'utils/*.js'],
+      rules: {
+        '@typescript-eslint/no-var-requires': 'off',
+      }
+    },
+    {
       files: ['*.svelte'],
       processor: 'svelte3/svelte3',
       rules: {
@@ -29,8 +35,9 @@ module.exports = {
         ],
         // Causes false positives with reactive and auto subscriptions
         '@typescript-eslint/strict-boolean-expressions': 'off',
+        '@typescript-eslint/no-unsafe-argument': 'off',
         'no-sequences': 'off',
-        'svelte/missing-declaration': "off",
+        'svelte/missing-declaration': 'off',
       }
     }
   ],

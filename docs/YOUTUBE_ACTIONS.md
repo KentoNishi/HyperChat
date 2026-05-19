@@ -26,6 +26,7 @@ YouTube actions almost always depend on these fields. If you drop any of them, y
 - Account identity: `x-goog-authuser` must match the active YouTube account (multi-login breaks without it)
 - Visitor identity: `x-goog-visitor-id`
 - Client identity: `x-youtube-client-name` and `x-youtube-client-version`
+- Delegated channel identity: `x-goog-pageid` from `DELEGATED_SESSION_ID` when present
 
 If you are unsure where a value comes from, stop and find it in:
 
@@ -60,13 +61,28 @@ Examples:
 
 - block: `moderateLiveChatEndpoint` (and friends)
 - report: `getReportFormEndpoint` (flow can be multi-step)
-- delete/retract: look for the delete/retract endpoint in the same way
+- delete/retract: `moderateLiveChatEndpoint` from the delete/retract menu item
 
 If an endpoint is missing, log enough context to diagnose:
 
 - which endpoint types we found
 - which ones we did not
 - which message/menu payload we used to ask for the menu
+
+## Delete / Retract Flow
+
+Delete/retract is not a separate obvious top-level API. It is a context-menu action:
+
+1. Use the message's `contextMenuEndpoint.liveChatItemContextMenuEndpoint.params`.
+2. Call `live_chat/get_item_context_menu` with those params and the same Innertube identity headers YouTube uses.
+3. Search the response tree for `menuServiceItemRenderer.serviceEndpoint.moderateLiveChatEndpoint`.
+4. Prefer candidates whose icon is `DELETE`.
+5. Fall back to label text only after endpoint and icon checks, because labels are localized and less stable.
+6. POST the selected endpoint params to `live_chat/moderate`.
+
+For streamer/mod deletes, do not infer capability from author id alone. YouTube exposes the delete affordance on each message via `inlineActionButtons`; parse that into `canDelete` and use it with the message's context-menu params.
+
+For self retraction, use the same endpoint discovery path. It may still be a `moderateLiveChatEndpoint`; the important distinction is the menu item YouTube returned for that message/account state, not a different hardcoded endpoint.
 
 ## Keep Requests Correlated
 
@@ -76,14 +92,18 @@ Do not use global listeners or "last response wins" patterns. Two actions can ov
 
 ## UI State: Be Honest
 
-When we apply an action locally, do it only when YouTube confirms success.
+When we apply an action locally, separate request success from YouTube's later chat-state echo.
 
 For delete/retract:
 
-- on success: remove the message from display (and tolerate YouTube later echoing a "retracted" update)
+- on local request success: mark the message as pending deleted, but keep the original runs available locally
+- on `markChatItemAsDeletedAction`: replace with YouTube's deleted-state message
+- on `removeChatItemAction`: treat the target message as pending deleted if YouTube only tells us to remove the item
+- on `markChatItemsByAuthorAsDeletedAction`: apply the deleted-state message to messages from that author
+- if YouTube provides `showOriginalContentMessage`, keep it as a view-original toggle for moderator contexts
 - on failure: keep it visible and surface an error
 
-If you fake success, users will trust the UI less than the native UI.
+Do not mutate the parsed message text in place. Keep the original parsed runs and choose the displayed runs at the render edge. Otherwise pending state, "view deleted message", and later YouTube confirmation can clobber each other.
 
 ## HAR + DevTools Tips (So You Do Not Lose The Payload)
 
@@ -98,4 +118,3 @@ If you fake success, users will trust the UI less than the native UI.
 - Wrong Innertube client name/version (YouTube serves different schemas)
 - SAPISIDHASH removed or computed for the wrong origin
 - Context menu parsing tied to item index instead of endpoint types
-
