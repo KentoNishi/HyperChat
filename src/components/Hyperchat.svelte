@@ -24,7 +24,7 @@
     chatUserActionsItems,
     ChatUserActions
   } from '../ts/chat-constants';
-  import { isAllEmoji, isChatMessage, isPrivileged, responseIsAction } from '../ts/chat-utils';
+  import { buildDeletedObj, isAllEmoji, isChatMessage, isPrivileged, responseIsAction } from '../ts/chat-utils';
   import { handleReplyThreadResponse } from '../ts/chat-actions';
   import Button from 'smelte/src/components/Button';
   import {
@@ -216,14 +216,15 @@
   };
 
   const onDelete = (deletion: Ytc.ParsedDeleted) => {
-    messageActions.some((action) => {
+    const changed = messageActions.some((action) => {
       if (isWelcome(action)) return false;
       if (action.message.messageId === deletion.messageId) {
-        action.deleted = { replace: deletion.replacedMessage };
+        action.deleted = buildDeletedObj(deletion, action.message.message);
         return true;
       }
       return false;
     });
+    if (changed) messageActions = messageActions;
   };
 
   const onChatAction = (action: Chat.Actions, isInitial = false) => {
@@ -326,6 +327,14 @@
         $ytDark = response.dark;
         break;
       case 'chatUserActionResponse':
+        if (response.success && response.action === ChatUserActions.DELETE_MESSAGE) {
+          onDelete({
+            messageId: response.message.messageId,
+            replacedMessage: [],
+            pending: true
+          });
+          break;
+        }
         $alertDialog = {
           title: response.success ? 'Success!' : 'Error',
           message: chatUserActionsItems.find(v => v.value === response.action)
@@ -333,13 +342,6 @@
           color: response.success ? 'primary' : 'error'
         };
         if (response.success) {
-          if (response.action === ChatUserActions.DELETE_MESSAGE) {
-            onDelete({
-              messageId: response.message.messageId,
-              replacedMessage: [{ text: '[message retracted]' }]
-            });
-            break;
-          }
           if (!removesAuthorMessages(response.action)) break;
           messageActions = messageActions.filter(
             (a) => {
@@ -472,7 +474,7 @@
   {#if $enableStickySuperchatBar}
     <StickyBar />
   {/if}
-  <div class="w-full min-h-0 flex justify-end flex-col relative">
+  <div class="w-full min-h-0 flex-1 flex justify-end flex-col relative">
     <div bind:this={div} on:scroll={checkAtBottom} class="content overflow-y-scroll">
       <div style="height: {topBarSize}px;" />
       {#each messageActions as action (action.message.messageId)}

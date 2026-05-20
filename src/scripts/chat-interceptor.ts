@@ -132,6 +132,7 @@ const chatLoaded = async (): Promise<void> => {
         const visitorId = (ytcfg as any)?.data_?.VISITOR_DATA ?? baseContext?.client?.visitorData;
         const clientName = (ytcfg as any)?.data_?.INNERTUBE_CLIENT_NAME;
         const clientVersion = (ytcfg as any)?.data_?.INNERTUBE_CLIENT_VERSION;
+        const pageId = (ytcfg as any)?.data_?.DELEGATED_SESSION_ID;
         return {
           headers: {
             'Content-Type': 'application/json',
@@ -140,6 +141,7 @@ const chatLoaded = async (): Promise<void> => {
             ...(visitorId != null ? { 'X-Goog-Visitor-Id': String(visitorId) } : {}),
             ...(clientName != null ? { 'X-Youtube-Client-Name': String(clientName) } : {}),
             ...(clientVersion != null ? { 'X-Youtube-Client-Version': String(clientVersion) } : {}),
+            ...(pageId != null ? { 'X-Goog-PageId': String(pageId) } : {}),
             'X-Origin': currentDomain,
             ...(auth != null ? { Authorization: auth } : {})
           },

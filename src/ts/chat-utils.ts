@@ -102,3 +102,12 @@ export const stripYoutubePlayerShell = (): void => {
   }
 };
 
+
+export const buildDeletedObj = (
+  deletion: Ytc.ParsedDeleted,
+  originalRuns: Ytc.ParsedRun[]
+): Chat.MessageDeletedObj => ({
+  replace: deletion.pending ? originalRuns : deletion.replacedMessage,
+  viewOriginalText: deletion.viewOriginalText,
+  pending: deletion.pending
+});
