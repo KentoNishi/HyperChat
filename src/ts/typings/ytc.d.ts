@@ -62,6 +62,7 @@ declare namespace Ytc {
     replayChatItemAction?: ReplayChatItemAction;
     markChatItemsByAuthorAsDeletedAction?: AuthorBonkedAction;
     markChatItemAsDeletedAction?: MessageDeletedAction;
+    removeChatItemAction?: RemoveChatItemAction;
   }
 
   /*
@@ -87,6 +88,11 @@ declare namespace Ytc {
   interface AuthorBonkedAction extends IDeleted {
     /** ID of channel that was bonked */
     externalChannelId: string;
+  }
+
+  /** YTC removeChatItemAction object */
+  interface RemoveChatItemAction {
+    targetItemId: string;
   }
 
   /** YTC markChatItemAsDeletedAction object. */
@@ -223,6 +229,12 @@ declare namespace Ytc {
         params: string;
       };
     };
+    /** Mod-only quick-action buttons (Remove/Timeout/Hide). */
+    inlineActionButtons?: Array<{
+      buttonRenderer?: {
+        icon?: { iconType?: string };
+      };
+    }>;
     /** Reply-to-superchat button on normal text messages. */
     beforeContentButtons?: Array<{
       buttonViewModel?: ReplyButtonViewModel;
@@ -422,6 +434,8 @@ declare namespace Ytc {
   interface IDeleted {
     /** Message to replace deleted messages. */
     deletedStateMessage: RunsObj;
+    /** Mod-only "View deleted message" affordance. */
+    showOriginalContentMessage?: RunsObj;
   }
 
   /** Integer formatted as string for whatever reason */
@@ -511,6 +525,7 @@ declare namespace Ytc {
     params?: string;
     membershipGiftPurchase?: ParsedMembershipGiftPurchase;
     membershipGiftRedeem?: boolean;
+    canDelete?: boolean;
     /** Reply context when this message is a reply to a Super Chat. */
     replyToSuperchat?: ParsedReplyToSuperchat;
     /** Opaque get_panel params for fetching this message's own reply thread (set on SCs). */
@@ -542,6 +557,9 @@ declare namespace Ytc {
   interface ParsedDeleted {
     replacedMessage: ParsedRun[];
     messageId: string;
+    viewOriginalText?: ParsedRun[];
+    /** No replacement text from YT — keep original text and mark as awaiting retraction (line-through). */
+    pending?: boolean;
   }
 
   interface ParsedPinned {

@@ -246,6 +246,10 @@ const parseAddChatItemAction = (action: Ytc.AddChatItemAction, isReplay = false,
   };
   const channelId = renderer.authorExternalChannelId;
 
+  const canDelete = messageRenderer.inlineActionButtons?.some(
+    (b) => b.buttonRenderer?.icon?.iconType === 'DELETE'
+  ) ?? false;
+
   const item: Ytc.ParsedMessage = {
     author: {
       // It's apparently possible for there to be no author name (and only an author photo).
@@ -259,7 +263,8 @@ const parseAddChatItemAction = (action: Ytc.AddChatItemAction, isReplay = false,
     timestamp: isReplay && timestampText != null ? timestampText : formatTimestamp(timestampUsec),
     showtime: isReplay ? liveTimeoutOrReplayMs : liveShowtimeMs,
     messageId: renderer.id,
-    params: messageRenderer.contextMenuEndpoint?.liveChatItemContextMenuEndpoint.params
+    params: messageRenderer.contextMenuEndpoint?.liveChatItemContextMenuEndpoint.params,
+    canDelete
   };
   if (channelId != null) {
     item.author.url = `${currentDomain}/channel/${channelId}`;
@@ -343,7 +348,10 @@ const parseAuthorBonkedAction = (action: Ytc.AuthorBonkedAction): Ytc.ParsedBonk
 const parseMessageDeletedAction = (action: Ytc.MessageDeletedAction): Ytc.ParsedDeleted | undefined => {
   return {
     replacedMessage: parseMessageRuns(action.deletedStateMessage.runs),
-    messageId: action.targetItemId
+    messageId: action.targetItemId,
+    viewOriginalText: action.showOriginalContentMessage
+      ? parseMessageRuns(action.showOriginalContentMessage.runs)
+      : undefined
   };
 };
 
@@ -471,6 +479,12 @@ const processLiveAction = (action: Ytc.Action, isReplay: boolean, liveTimeoutMs:
     return parseAuthorBonkedAction(action.markChatItemsByAuthorAsDeletedAction);
   } else if (action.markChatItemAsDeletedAction) {
     return parseMessageDeletedAction(action.markChatItemAsDeletedAction);
+  } else if (action.removeChatItemAction) {
+    return {
+      replacedMessage: [],
+      messageId: action.removeChatItemAction.targetItemId,
+      pending: true
+    };
   }
 };
 

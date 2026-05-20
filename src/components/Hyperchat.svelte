@@ -22,6 +22,7 @@
     ChatUserActions
   } from '../ts/chat-constants';
   import {
+    buildDeletedObj,
     isAllEmoji,
     isChatMessage,
     isPrivileged,
@@ -249,14 +250,15 @@
   };
 
   const onDelete = (deletion: Ytc.ParsedDeleted) => {
-    messageActions.some((action) => {
+    const changed = messageActions.some((action) => {
       if (isWelcome(action)) return false;
       if (action.message.messageId === deletion.messageId) {
-        action.deleted = { replace: deletion.replacedMessage };
+        action.deleted = buildDeletedObj(deletion, action.message.message);
         return true;
       }
       return false;
     });
+    if (changed) messageActions = messageActions;
   };
 
   const onChatAction = (action: Chat.Actions, isInitial = false) => {
@@ -336,6 +338,12 @@
     else document.body.classList.remove('bg-ytdark-50');
   };
 
+  const removesAuthorMessages = (action: ChatUserActions): boolean => {
+    return action === ChatUserActions.BLOCK ||
+      action === ChatUserActions.REPORT_USER ||
+      action === ChatUserActions.HIDE_USER;
+  };
+
   const onPortMessage = (response: Chat.BackgroundResponse) => {
     if (responseIsAction(response)) {
       onChatAction(response);
@@ -353,6 +361,14 @@
         $ytDark = response.dark;
         break;
       case 'chatUserActionResponse':
+        if (response.success && response.action === ChatUserActions.DELETE_MESSAGE) {
+          onDelete({
+            messageId: response.message.messageId,
+            replacedMessage: [],
+            pending: true
+          });
+          break;
+        }
         $alertDialog = {
           title: response.success ? 'Success!' : 'Error',
           message: chatUserActionsItems.find(v => v.value === response.action)
@@ -360,13 +376,7 @@
           color: response.success ? 'primary' : 'error'
         };
         if (response.success) {
-          if (response.action === ChatUserActions.DELETE_MESSAGE) {
-            onDelete({
-              messageId: response.message.messageId,
-              replacedMessage: [{ text: '[message retracted]' }]
-            });
-            break;
-          }
+          if (!removesAuthorMessages(response.action)) break;
           messageActions = messageActions.filter(
             (a) => {
               if (isWelcome(a)) return true;
@@ -515,7 +525,7 @@
   {#if $enableStickySuperchatBar}
     <StickyBar />
   {/if}
-  <div class="w-screen min-h-0 flex justify-end flex-col relative">
+  <div class="w-screen min-h-0 flex-1 flex justify-end flex-col relative">
     <div bind:this={div} on:scroll={checkAtBottom} class="content overflow-y-scroll">
       <div style="height: {topBarSize}px;" />
       {#each messageActions as action (action.message.messageId)}
