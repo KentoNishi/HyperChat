@@ -122,6 +122,55 @@ The hide/unhide flow therefore has two proven unhide sources: the context menu's
 
 The mod-action HAR contains `FLAG` / `Report` menu items, but it does not contain an executed report submission. Use the existing report flow for report execution unless a new report-specific HAR says otherwise.
 
+## Mod Action Implementation Plan
+
+Everything currently implemented for block, report, delete/retract, message parsing, queueing, and MV2 background forwarding works and must not regress. Implement mod actions by preserving the existing architecture and changing only the pieces required to select and execute the correct YouTube endpoints.
+
+Constraints:
+
+- Do not rewrite the common menu component.
+- Do not make the message menu dynamically fetch native YouTube menu items on open.
+- Do not replace the background/interceptor message flow.
+- Do not change deletion/retraction UI state handling except where endpoint selection must become more precise.
+- Do not ingest arbitrary action response bodies into the queue in the first mod-action pass.
+
+Implementation shape:
+
+1. Keep the static HyperChat message menu.
+2. Add explicit action constants/menu entries for the supported mod actions.
+3. Use the existing report-dialog pattern for actions that need a choice:
+   - timeout duration: `10 seconds`, `1 minute`, `5 minutes`, `10 minutes`, `30 minutes`, `24 hours`
+   - add moderator role: `Managing moderator`, `Standard moderator`
+4. Keep `useBanHammer`, `executeChatAction`, `chatUserActionResponse`, and MV2 background forwarding structurally intact.
+5. Inside the action executor, keep the existing `get_item_context_menu` request, headers, SAPISIDHASH, and proxy fetch flow.
+6. Replace fragile endpoint selection with icon-aware resolution:
+   - `DELETE_MESSAGE`: `DELETE` + `moderateLiveChatEndpoint`
+   - `PIN_MESSAGE`: `KEEP` + `liveChatActionEndpoint`
+   - `HIDE_USER`: `REMOVE_CIRCLE` + `moderateLiveChatEndpoint`
+   - `UNHIDE_USER`: `ADD_CIRCLE` + `moderateLiveChatEndpoint`
+   - `TIMEOUT_USER`: `HOURGLASS` + selected nested option's `moderateLiveChatEndpoint`
+   - `ADD_MODERATOR`: `ADD_MODERATOR` + selected nested option's `manageLiveChatUserEndpoint`
+   - `REMOVE_MODERATOR`: `REMOVE_MODERATOR` + `manageLiveChatUserEndpoint`
+   - `REPORT_USER`: existing report form flow
+   - `BLOCK`: only a real `BLOCK` menu item; do not fall back to the first `moderateLiveChatEndpoint`
+7. Keep local success side effects narrow:
+   - `DELETE_MESSAGE`: keep the current local deleted-message replacement.
+   - `BLOCK`: keep current removal of that author's visible messages.
+   - `HIDE_USER`: may remove that author's visible messages, matching the user-visible effect of hiding.
+   - pin, timeout, add moderator, remove moderator, unhide, and report: show success/failure only.
+8. Implement on MV2 first, then merge forward:
+   - HyperChat `mv2`
+   - HyperChat `main`
+   - HyperChat `mv3-ltl`
+
+Regression guardrails:
+
+- Existing delete/retract behavior must continue to work for self messages, own streams, other streams, and moderator deletes.
+- Existing report behavior must keep the same dialog and request flow.
+- Existing block behavior must not accidentally execute delete/hide/timeout just because those share `moderateLiveChatEndpoint`.
+- Existing queue/parser deletion handling must remain the source of truth for YouTube-originated delete updates.
+- If a static HyperChat action is unavailable in YouTube's context menu, fail gracefully through `chatUserActionResponse` instead of guessing another endpoint.
+
 ## Keep Requests Correlated
 
 If you proxy Innertube calls through a background/service worker, keep request/response events correlated by request id.
