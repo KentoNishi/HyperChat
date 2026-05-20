@@ -237,25 +237,41 @@ const chatLoaded = async (): Promise<void> => {
             hints: iconTypes
           });
         }
-        function findServiceEndpoint(root: any, prop: string): any | null {
+        type EndpointProp = 'moderateLiveChatEndpoint' | 'getReportFormEndpoint' |
+          'liveChatActionEndpoint' | 'manageLiveChatUserEndpoint';
+        function getText(text: any): string {
+          if (typeof text?.simpleText === 'string') return text.simpleText;
+          if (Array.isArray(text?.runs)) {
+            return text.runs.map((r: any) => r?.text).filter(Boolean).join('');
+          }
+          return '';
+        }
+        function walkObjects(root: any, visitor: (current: any) => void): void {
           const queue = [root];
           const visited = new Set<any>();
           while (queue.length > 0) {
             const current = queue.shift();
             if (current == null || typeof current !== 'object' || visited.has(current)) continue;
             visited.add(current);
-            if (typeof current?.[prop]?.params === 'string') {
-              return current;
-            }
+            visitor(current);
             for (const value of Object.values(current)) {
               if (value != null && typeof value === 'object') {
                 queue.push(value);
               }
             }
           }
-          return null;
         }
-        function parseServiceEndpoint(serviceEndpoint: any, prop: string): { params: string, context: any } {
+        function findServiceEndpoint(root: any, prop: EndpointProp): any | null {
+          let found: any | null = null;
+          walkObjects(root, (current) => {
+            if (found != null) return;
+            if (typeof current?.[prop]?.params === 'string') {
+              found = current;
+            }
+          });
+          return found;
+        }
+        function parseServiceEndpoint(serviceEndpoint: any, prop: EndpointProp): { params: string, context: any } {
           if (typeof serviceEndpoint?.[prop]?.params !== 'string') {
             throw new Error(`Missing service endpoint params for ${prop}`);
           }
@@ -271,78 +287,104 @@ const chatLoaded = async (): Promise<void> => {
             context: clonedContext
           };
         }
-        function findDeleteMessageEndpoint(root: any): any | null {
-          const queue = [root];
-          const visited = new Set<any>();
-          const candidates: Array<{ iconType?: string, label?: string, endpoint: any }> = [];
-          while (queue.length > 0) {
-            const current = queue.shift();
-            if (current == null || typeof current !== 'object' || visited.has(current)) continue;
-            visited.add(current);
+        function findMenuEndpoint(
+          root: any,
+          iconType: string,
+          prop: EndpointProp,
+          labelMatches: Array<(label: string) => boolean> = []
+        ): any | null {
+          const candidates: Array<{ iconType?: string, label: string, endpoint: any }> = [];
+          walkObjects(root, (current) => {
             const menu = current?.menuServiceItemRenderer;
-            const iconType = menu?.icon?.iconType;
+            if (menu == null) return;
             const endpoint = menu?.serviceEndpoint;
-            const label = (
-              Array.isArray(menu?.text?.runs)
-                ? menu.text.runs.map((r: any) => r?.text).filter(Boolean).join('')
-                : menu?.text?.simpleText
-            ) as string | undefined;
-            // Prefer stable identifiers (DELETE icon + moderate endpoint) over localized label text.
-            if (typeof endpoint?.moderateLiveChatEndpoint?.params === 'string') {
-              candidates.push({ iconType, label, endpoint });
+            if (typeof endpoint?.[prop]?.params === 'string') {
+              candidates.push({
+                iconType: menu?.icon?.iconType,
+                label: getText(menu?.text),
+                endpoint
+              });
             }
-            for (const value of Object.values(current)) {
-              if (value != null && typeof value === 'object') {
-                queue.push(value);
-              }
-            }
+          });
+          for (const c of candidates) {
+            if (c.iconType === iconType) return c.endpoint;
           }
           for (const c of candidates) {
-            if (c.iconType === 'DELETE') return c.endpoint;
-          }
-          for (const c of candidates) {
-            const l = (c.label ?? '').toLowerCase();
-            if (l.includes('remove') || l.includes('delete') || l.includes('retract') || l.includes('unsend')) {
+            const label = c.label.toLowerCase();
+            if (labelMatches.some((matcher) => matcher(label))) {
               return c.endpoint;
             }
           }
-          if (candidates.length === 1) return candidates[0].endpoint;
           return null;
         }
-        if (msg.action === ChatUserActions.BLOCK) {
-          const serviceEndpoint = findServiceEndpoint(res, 'moderateLiveChatEndpoint');
-          if (serviceEndpoint == null) {
-            throw new Error('Could not find moderate endpoint in context menu');
+        function findNestedOptionEndpoint(
+          root: any,
+          iconType: string,
+          optionLabel: string | undefined,
+          prop: EndpointProp
+        ): any | null {
+          if (optionLabel == null) {
+            throw new Error(`Missing option label for ${iconType}`);
           }
-          const { params, context } = parseServiceEndpoint(serviceEndpoint, 'moderateLiveChatEndpoint');
-          const moderationResponse = await fetcher(`${currentDomain}/youtubei/v1/live_chat/moderate?key=${apiKey}&prettyPrint=false`, {
+          let found: any | null = null;
+          const normalizedOptionLabel = optionLabel.toLowerCase();
+          walkObjects(root, (current) => {
+            if (found != null) return;
+            const menu = current?.menuServiceItemRenderer;
+            if (menu?.icon?.iconType !== iconType) return;
+            walkObjects(menu, (menuNode) => {
+              if (found != null) return;
+              const option = menuNode?.optionSelectableItemRenderer;
+              const endpoint = option?.submitEndpoint;
+              if (typeof endpoint?.[prop]?.params !== 'string') return;
+              if (getText(option?.text).toLowerCase() === normalizedOptionLabel) {
+                found = endpoint;
+              }
+            });
+          });
+          return found;
+        }
+        async function postEndpoint(
+          serviceEndpoint: any,
+          prop: EndpointProp,
+          apiPath: string
+        ): Promise<any> {
+          const { params, context } = parseServiceEndpoint(serviceEndpoint, prop);
+          const actionResponse = await fetcher(`${currentDomain}/youtubei/v1/${apiPath}?key=${apiKey}&prettyPrint=false`, {
             ...heads,
             body: JSON.stringify({
               params,
               context
             })
           });
-          if (moderationResponse?.error != null || moderationResponse?.success === false) {
-            throw new Error('Moderation request failed');
+          if (actionResponse?.error != null || actionResponse?.success === false) {
+            throw new Error(`${apiPath} request failed`);
           }
+          return actionResponse;
+        }
+        if (msg.action === ChatUserActions.BLOCK) {
+          const serviceEndpoint = findMenuEndpoint(res, 'BLOCK', 'moderateLiveChatEndpoint', [
+            (label) => label.includes('block')
+          ]);
+          if (serviceEndpoint == null) {
+            throw new Error('Could not find block endpoint in context menu');
+          }
+          await postEndpoint(serviceEndpoint, 'moderateLiveChatEndpoint', 'live_chat/moderate');
         } else if (msg.action === ChatUserActions.DELETE_MESSAGE) {
-          const serviceEndpoint = findDeleteMessageEndpoint(res);
+          const serviceEndpoint = findMenuEndpoint(res, 'DELETE', 'moderateLiveChatEndpoint', [
+            (label) => label.includes('remove') || label.includes('delete') ||
+              label.includes('retract') || label.includes('unsend')
+          ]);
           if (serviceEndpoint == null) {
             throw new Error('Could not find delete endpoint in context menu');
           }
-          const { params, context } = parseServiceEndpoint(serviceEndpoint, 'moderateLiveChatEndpoint');
           if (debugAction) {
+            const { params } = parseServiceEndpoint(serviceEndpoint, 'moderateLiveChatEndpoint');
             console.debug('[hc] delete: moderate', {
               paramsPrefix: params.slice(0, 24)
             });
           }
-          const moderationResponse = await fetcher(`${currentDomain}/youtubei/v1/live_chat/moderate?key=${apiKey}&prettyPrint=false`, {
-            ...heads,
-            body: JSON.stringify({
-              params,
-              context
-            })
-          });
+          const moderationResponse = await postEndpoint(serviceEndpoint, 'moderateLiveChatEndpoint', 'live_chat/moderate');
           if (debugAction) {
             console.debug('[hc] delete: moderate response', {
               keys: moderationResponse != null && typeof moderationResponse === 'object'
@@ -352,12 +394,65 @@ const chatLoaded = async (): Promise<void> => {
               success: moderationResponse?.success
             });
           }
-          if (moderationResponse?.error != null || moderationResponse?.success === false) {
-            throw new Error('Moderation request failed');
+        } else if (msg.action === ChatUserActions.PIN_MESSAGE) {
+          const serviceEndpoint = findMenuEndpoint(res, 'KEEP', 'liveChatActionEndpoint', [
+            (label) => label.includes('pin')
+          ]);
+          if (serviceEndpoint == null) {
+            throw new Error('Could not find pin endpoint in context menu');
           }
+          await postEndpoint(serviceEndpoint, 'liveChatActionEndpoint', 'live_chat/live_chat_action');
+        } else if (msg.action === ChatUserActions.TIMEOUT_USER) {
+          const serviceEndpoint = findNestedOptionEndpoint(
+            res,
+            'HOURGLASS',
+            msg.actionOption,
+            'moderateLiveChatEndpoint'
+          );
+          if (serviceEndpoint == null) {
+            throw new Error('Could not find timeout endpoint in context menu');
+          }
+          await postEndpoint(serviceEndpoint, 'moderateLiveChatEndpoint', 'live_chat/moderate');
+        } else if (msg.action === ChatUserActions.HIDE_USER) {
+          const serviceEndpoint = findMenuEndpoint(res, 'REMOVE_CIRCLE', 'moderateLiveChatEndpoint', [
+            (label) => label.includes('hide user')
+          ]);
+          if (serviceEndpoint == null) {
+            throw new Error('Could not find hide endpoint in context menu');
+          }
+          await postEndpoint(serviceEndpoint, 'moderateLiveChatEndpoint', 'live_chat/moderate');
+        } else if (msg.action === ChatUserActions.UNHIDE_USER) {
+          const serviceEndpoint = findMenuEndpoint(res, 'ADD_CIRCLE', 'moderateLiveChatEndpoint', [
+            (label) => label.includes('unhide user')
+          ]);
+          if (serviceEndpoint == null) {
+            throw new Error('Could not find unhide endpoint in context menu');
+          }
+          await postEndpoint(serviceEndpoint, 'moderateLiveChatEndpoint', 'live_chat/moderate');
+        } else if (msg.action === ChatUserActions.ADD_MODERATOR) {
+          const serviceEndpoint = findNestedOptionEndpoint(
+            res,
+            'ADD_MODERATOR',
+            msg.actionOption,
+            'manageLiveChatUserEndpoint'
+          );
+          if (serviceEndpoint == null) {
+            throw new Error('Could not find add moderator endpoint in context menu');
+          }
+          await postEndpoint(serviceEndpoint, 'manageLiveChatUserEndpoint', 'live_chat/manage_user');
+        } else if (msg.action === ChatUserActions.REMOVE_MODERATOR) {
+          const serviceEndpoint = findMenuEndpoint(res, 'REMOVE_MODERATOR', 'manageLiveChatUserEndpoint', [
+            (label) => label.includes('remove') && label.includes('moderator')
+          ]);
+          if (serviceEndpoint == null) {
+            throw new Error('Could not find remove moderator endpoint in context menu');
+          }
+          await postEndpoint(serviceEndpoint, 'manageLiveChatUserEndpoint', 'live_chat/manage_user');
         } else if (msg.action === ChatUserActions.REPORT_USER) {
           const apiKey = ytcfg.data_.INNERTUBE_API_KEY;
-          const serviceEndpoint = findServiceEndpoint(res, 'getReportFormEndpoint');
+          const serviceEndpoint = findMenuEndpoint(res, 'FLAG', 'getReportFormEndpoint', [
+            (label) => label.includes('report')
+          ]) ?? findServiceEndpoint(res, 'getReportFormEndpoint');
           if (serviceEndpoint == null) {
             throw new Error('Could not find report endpoint in context menu');
           }
@@ -398,6 +493,8 @@ const chatLoaded = async (): Promise<void> => {
           if (flagResponse?.error != null || flagResponse?.success === false) {
             throw new Error('Report request failed');
           }
+        } else {
+          throw new Error(`Unknown chat action: ${msg.action as string}`);
         }
       } catch (e) {
         console.debug('Error executing chat action', e);

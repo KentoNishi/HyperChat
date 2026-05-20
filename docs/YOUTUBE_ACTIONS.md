@@ -156,8 +156,9 @@ Implementation shape:
 7. Keep local success side effects narrow:
    - `DELETE_MESSAGE`: keep the current local deleted-message replacement.
    - `BLOCK`: keep current removal of that author's visible messages.
+   - `REPORT_USER`: keep current removal of that author's visible messages.
    - `HIDE_USER`: may remove that author's visible messages, matching the user-visible effect of hiding.
-   - pin, timeout, add moderator, remove moderator, unhide, and report: show success/failure only.
+   - pin, timeout, add moderator, remove moderator, and unhide: show success/failure only.
 8. Implement on MV2 first, then merge forward:
    - HyperChat `mv2`
    - HyperChat `main`

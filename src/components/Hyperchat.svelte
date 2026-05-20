@@ -303,6 +303,12 @@
     else document.body.classList.remove('bg-ytdark-50');
   };
 
+  const removesAuthorMessages = (action: ChatUserActions): boolean => {
+    return action === ChatUserActions.BLOCK ||
+      action === ChatUserActions.REPORT_USER ||
+      action === ChatUserActions.HIDE_USER;
+  };
+
   const onPortMessage = (response: Chat.BackgroundResponse) => {
     if (responseIsAction(response)) {
       onChatAction(response);
@@ -334,6 +340,7 @@
             });
             break;
           }
+          if (!removesAuthorMessages(response.action)) break;
           messageActions = messageActions.filter(
             (a) => {
               if (isWelcome(a)) return true;

@@ -74,7 +74,10 @@
     if (isSelf) {
       return d.value === ChatUserActions.DELETE_MESSAGE && message.params != null;
     }
-    return d.value !== ChatUserActions.DELETE_MESSAGE;
+    if (message.params == null) {
+      return d.value === ChatUserActions.BLOCK || d.value === ChatUserActions.REPORT_USER;
+    }
+    return true;
   });
   $: menuItems = visibleActions.map((d) => ({
     icon: d.icon,
