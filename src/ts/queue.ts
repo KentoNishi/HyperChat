@@ -1,5 +1,6 @@
 import { parseChatResponse } from './chat-parser';
 import type { Chat } from './typings/chat';
+import { buildDeletedObj } from './chat-utils';
 
 interface QueueItem<T> { data: T, next?: QueueItem<T> }
 export interface Queue<T> {
@@ -196,7 +197,7 @@ export function ytcQueue(isReplay = false): YtcQueue {
     }
     for (const d of deletions) {
       if (message.messageId !== d.messageId) continue;
-      messageAction.deleted = { replace: d.replacedMessage };
+      messageAction.deleted = buildDeletedObj(d, message.message);
       return;
     }
   };
