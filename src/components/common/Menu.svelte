@@ -85,7 +85,7 @@
           class={menuClasses}
           transition:fade={{ duration: 150 }}
           bind:this={listDiv}
-          style="max-width: 20em; font-size: 0.9em; {offsetYStyle}"
+          style="max-width: 20em; font-size: 1em; {offsetYStyle}"
         >
           <List
             select
@@ -98,7 +98,7 @@
                   on:click={() => { onItemClick(item); }}
                   style="padding: 0.5em 1em"
                 >
-                  <Icon class="pr-6">
+                  <Icon class="pr-2">
                     {item.icon}
                   </Icon>
                   <span>{item.text}</span>

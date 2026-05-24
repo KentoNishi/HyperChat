@@ -60,8 +60,17 @@
   });
   $: nameColorClass = generateNameColorClass(member, moderator, owner, forceDark);
 
-  $: if (deleted != null) {
-    message.message = deleted.replace;
+  let showOriginal = false;
+  $: displayRuns = deleted != null && !showOriginal ? deleted.replace : message.message;
+  // If showing original text, swap the first text run to 'hide'.
+  let toggleLabelRuns: Ytc.ParsedRun[] | undefined;
+  $: {
+    let swapped = !showOriginal;
+    toggleLabelRuns = deleted?.viewOriginalText?.map((r) => {
+      if (swapped || r.type !== 'text') return r;
+      swapped = true;
+      return { ...r, text: 'Hide deleted message' };
+    });
   }
   $: displayAuthorName = formatAuthorName(message.author.name);
 
@@ -72,10 +81,10 @@
 
   $: isSelf = message.author.id === $selfChannelId;
   $: visibleActions = chatUserActionsItems.filter((d) => {
-    if (isSelf) {
-      return d.value === ChatUserActions.DELETE_MESSAGE && message.params != null;
+    if (d.value === ChatUserActions.DELETE_MESSAGE) {
+      return (isSelf || message.canDelete) && message.params != null && deleted == null;
     }
-    return d.value !== ChatUserActions.DELETE_MESSAGE;
+    return !isSelf;
   });
   $: menuItems = visibleActions.map((d) => ({
     icon: d.icon,
@@ -99,7 +108,7 @@
   {#if !hideName && $showProfileIcons}
     <a
       href={message.author.url}
-      class="flex-shrink-0 {message.author.url ? 'cursor-pointer' : 'cursor-auto'}"
+      class="flex-shrink-0 {message.author.url ? 'cursor-pointer' : 'cursor-auto'} {deleted != null ? 'opacity-50' : ''}"
       target="_blank"
     >
       <img
@@ -109,7 +118,7 @@
       />
     </a>
   {/if}
-  <div>
+  <div class={deleted != null ? 'opacity-50' : ''}>
     {#if !hideName}
       <span
         class="text-xs mr-1 text-gray-700 dark:text-gray-600 align-middle"
@@ -178,12 +187,26 @@
       </span>
     {/if}
     <MessageRun
-      runs={message.message}
+      runs={displayRuns}
       {forceDark}
       deleted={deleted != null}
       {forceTLColor}
-      class={message.membershipGiftRedeem ? 'text-gray-700 dark:text-gray-600 italic font-medium' : ''}
+      class="{message.membershipGiftRedeem ? 'text-gray-700 dark:text-gray-600 italic font-medium' : ''} {deleted?.pending || showOriginal ? 'line-through' : ''}"
     />
+    {#if deleted?.viewOriginalText}
+      <button
+        type="button"
+        on:click={() => (showOriginal = !showOriginal)}
+        class="ml-1 align-middle text-xs cursor-pointer text-deleted-light dark:text-deleted-dark bg-transparent border-0 p-0"
+      >
+        <MessageRun
+          runs={toggleLabelRuns}
+          {forceDark}
+          {forceTLColor}
+          class="underline cursor-pointer"
+        />
+      </button>
+    {/if}
     {#if message.membershipGiftRedeem}
       <svg
         height="1em"

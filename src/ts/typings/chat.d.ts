@@ -4,6 +4,8 @@ import type { Unsubscriber, YtcQueue } from '../queue';
 declare namespace Chat {
   interface MessageDeletedObj {
     replace: Ytc.ParsedRun[];
+    viewOriginalText?: Ytc.ParsedRun[];
+    pending?: boolean;
   }
 
   interface MessageAction {
