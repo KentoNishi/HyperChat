@@ -61,8 +61,14 @@
   }
   
   .button-icon {
+    color: var(--yt-sys-color-baseline--text-primary);
     display: flex;
+    fill: currentColor;
     justify-content: center;
-    fill: var(--yt-spec-text-primary);
+  }
+
+  .button-icon :global(svg),
+  .button-icon :global(path) {
+    fill: currentColor;
   }
 </style>

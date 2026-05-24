@@ -1,12 +1,12 @@
 <ul class="list-disc list-inside">
   <strong>Serving in our latest update:</strong>
-  <li class="ml-3.5">
+  <li>
     Delete messages (sent or mod)
   </li>
-  <li class="ml-3.5">
+  <li>
     View superchat replies
   </li>
-  <li class="ml-3.5">
+  <li>
     Fix visual formatting
   </li>
 </ul>
