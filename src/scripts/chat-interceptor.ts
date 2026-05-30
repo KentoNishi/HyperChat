@@ -212,7 +212,13 @@ const chatLoaded = async (): Promise<void> => {
         // ytcfg.context.client.visitorData in subtle ways and cause YT to treat the request as logged out.
         // Instead, let the page-side proxy merge the latest headers from real YT requests.
         const heads = buildInnertubeHeaders();
-        const contextMenuContext = JSON.parse(JSON.stringify(baseContext));
+        const cloneBaseContext = (): any => JSON.parse(JSON.stringify(baseContext));
+        const buildContextMenuContext = (): any => {
+          const context = cloneBaseContext();
+          delete context.clickTracking;
+          return context;
+        };
+        const contextMenuContext = buildContextMenuContext();
         if (debugAction) {
           console.debug('[hc] delete: get_item_context_menu', {
             url: contextMenuUrl,
@@ -278,7 +284,8 @@ const chatLoaded = async (): Promise<void> => {
             throw new Error(`Missing service endpoint params for ${prop}`);
           }
           const { clickTrackingParams, [prop]: { params } } = serviceEndpoint;
-          const clonedContext = JSON.parse(JSON.stringify(baseContext));
+          const clonedContext = cloneBaseContext();
+          delete clonedContext.clickTracking;
           if (clickTrackingParams != null) {
             clonedContext.clickTracking = {
               clickTrackingParams
