@@ -26,6 +26,7 @@ YouTube actions almost always depend on these fields. If you drop any of them, y
 - Account identity: `x-goog-authuser` must match the active YouTube account (multi-login breaks without it)
 - Visitor identity: `x-goog-visitor-id`
 - Client identity: `x-youtube-client-name` and `x-youtube-client-version`
+- Delegated channel identity: `x-goog-pageid` from `DELEGATED_SESSION_ID` when present
 
 If you are unsure where a value comes from, stop and find it in:
 
@@ -33,18 +34,17 @@ If you are unsure where a value comes from, stop and find it in:
 - the context menu response tree
 - the message renderer tree that created the menu
 
-## Auth: SAPISIDHASH Still Matters
+## Auth And Identity Headers
 
 Some actions require a valid `Authorization: SAPISIDHASH ...` header (computed from cookies).
 
-Do not remove SAPISIDHASH support just because a specific action seems to work without it on your machine. It can break on:
+Do not remove SAPISIDHASH support just because a specific action seems to work without it on your machine. Deletion/retraction experiments included a successful HyperChat request with SAPISIDHASH, so the implementation keeps the computed auth path.
 
-- different accounts
-- different regions
-- different browsers
-- multi-login sessions
+Do not claim SAPISIDHASH is required for every action either. The native mod-action HAR did not send `Authorization` on `get_item_context_menu`, `live_chat/moderate`, `live_chat/manage_user`, or `live_chat/live_chat_action`.
 
-Treat "native works" as the ground truth: if native sends SAPISIDHASH for that call, we should too.
+Treat "native works" as the ground truth: if native sends SAPISIDHASH for that call, we should too. If native does not send it, the HAR only proves the identity envelope around the request, not that auth is required.
+
+For mod actions from a delegated channel, `x-goog-pageid` is part of that identity envelope. In `trying-mod-actions.har`, every relevant native request had `x-goog-pageid`; deletion/retraction captures did not. Keep this distinction visible when carrying code between MV2 and MV3.
 
 ## Endpoint Discovery: Never Hardcode Indices
 
@@ -60,13 +60,45 @@ Examples:
 
 - block/hide/delete/timeout/unhide: `moderateLiveChatEndpoint` (but choose by menu icon/action, not by endpoint type alone)
 - report: `getReportFormEndpoint` (flow can be multi-step)
-- delete/retract: look for the delete/retract endpoint in the same way
+- delete/retract: `moderateLiveChatEndpoint` from the delete/retract menu item
 
 If an endpoint is missing, log enough context to diagnose:
 
 - which endpoint types we found
 - which ones we did not
 - which message/menu payload we used to ask for the menu
+
+## Delete / Retract Flow
+
+Delete/retract is not a separate obvious top-level API. It is a context-menu action:
+
+1. Use the message's `contextMenuEndpoint.liveChatItemContextMenuEndpoint.params`.
+2. Call `live_chat/get_item_context_menu` with those params and the same Innertube identity headers YouTube uses.
+3. Search the response tree for `menuServiceItemRenderer.serviceEndpoint.moderateLiveChatEndpoint`.
+4. Prefer candidates whose icon is `DELETE`.
+5. Fall back to label text only after endpoint and icon checks, because labels are localized and less stable.
+6. POST the selected endpoint params to `live_chat/moderate`.
+
+For streamer/mod deletes, do not infer capability from author id alone. YouTube exposes the delete affordance on each message via `inlineActionButtons`; parse that into `canDelete` and use it with the message's context-menu params.
+
+For self retraction, use the same endpoint discovery path. It may still be a `moderateLiveChatEndpoint`; the important distinction is the menu item YouTube returned for that message/account state, not a different hardcoded endpoint.
+
+## Context Shape Matters
+
+The deletion/retraction HARs proved that "success: true" is not enough. A sloppy request can return a successful response with the wrong chat action.
+
+For `live_chat/get_item_context_menu`, native requests used:
+
+- `context.adSignalsInfo`
+- `context.client`
+- `context.request`
+- `context.user`
+
+They did not include `context.clickTracking`.
+
+For the actual mutation request (`live_chat/moderate`, `live_chat/manage_user`, or `live_chat/live_chat_action`), native requests used the same context plus endpoint-specific `context.clickTracking.clickTrackingParams` from the selected returned endpoint.
+
+Do not carry stale click tracking from the base context into the context-menu request. Do not invent click tracking for the mutation request. Copy it from the selected endpoint.
 
 ## Mod Action Learnings
 
@@ -142,7 +174,11 @@ Implementation shape:
    - timeout duration: `10 seconds`, `1 minute`, `5 minutes`, `10 minutes`, `30 minutes`, `24 hours`
    - add moderator role: `Managing moderator`, `Standard moderator`
 4. Keep `useBanHammer`, `executeChatAction`, `chatUserActionResponse`, and MV2 background forwarding structurally intact.
-5. Inside the action executor, keep the existing `get_item_context_menu` request, headers, SAPISIDHASH, and proxy fetch flow.
+5. Inside the action executor, keep the existing `get_item_context_menu` request and proxy fetch flow, but make the request shape match the HAR:
+   - context-menu request: no `clickTracking`
+   - mutation request: endpoint-specific `clickTrackingParams`
+   - identity headers: active account, visitor, client name/version, origin, and delegated `x-goog-pageid` when present
+   - SAPISIDHASH support remains available, but the mod-action HAR does not prove it is required
 6. Replace fragile endpoint selection with icon-aware resolution:
    - `DELETE_MESSAGE`: `DELETE` + `moderateLiveChatEndpoint`
    - `PIN_MESSAGE`: `KEEP` + `liveChatActionEndpoint`
@@ -184,10 +220,14 @@ When we apply an action locally, do it only when YouTube confirms success.
 
 For delete/retract:
 
-- on success: remove the message from display (and tolerate YouTube later echoing a "retracted" update)
+- on local request success: mark the message as pending deleted, but keep the original runs available locally
+- on `markChatItemAsDeletedAction`: replace with YouTube's deleted-state message
+- on `removeChatItemAction`: treat the target message as pending deleted if YouTube only tells us to remove the item
+- on `markChatItemsByAuthorAsDeletedAction`: apply the deleted-state message to messages from that author
+- if YouTube provides `showOriginalContentMessage`, keep it as a view-original toggle for moderator contexts
 - on failure: keep it visible and surface an error
 
-If you fake success, users will trust the UI less than the native UI.
+Do not mutate the parsed message text in place. Keep the original parsed runs and choose the displayed runs at the render edge. Otherwise pending state, "view deleted message", and later YouTube confirmation can clobber each other.
 
 ## HAR + DevTools Tips (So You Do Not Lose The Payload)
 
@@ -198,7 +238,9 @@ If you fake success, users will trust the UI less than the native UI.
 ## Where This Usually Breaks
 
 - Missing `x-goog-authuser` (multi-account sessions)
+- Missing `x-goog-pageid` when acting as a delegated channel
 - Dropped `clickTrackingParams` / message `params`
+- Carrying `clickTracking` into `get_item_context_menu`
 - Wrong Innertube client name/version (YouTube serves different schemas)
-- SAPISIDHASH removed or computed for the wrong origin
+- SAPISIDHASH removed where native/working HC requests require it, or computed for the wrong origin
 - Context menu parsing tied to item index instead of endpoint types
