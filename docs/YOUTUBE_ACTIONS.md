@@ -154,6 +154,8 @@ The hide/unhide flow therefore has two proven unhide sources: the context menu's
 
 The mod-action HAR contains `FLAG` / `Report` menu items, but it does not contain an executed report submission. Use the existing report flow for report execution unless a new report-specific HAR says otherwise.
 
+Block and report predate the full mod-action work and should be treated as existing behavior, not new HAR-derived features. The HAR lessons still apply to their shared context-menu request shape and endpoint selection, but do not remove existing block/report UI affordances just because some messages lack context-menu params. That path may fail through the executor today, but hiding it would be a behavior change without a proven replacement.
+
 ## Mod Action Implementation Plan
 
 Everything currently implemented for block, report, delete/retract, message parsing, queueing, and MV2 background forwarding works and must not regress. Implement mod actions by preserving the existing architecture and changing only the pieces required to select and execute the correct YouTube endpoints.
@@ -205,6 +207,7 @@ Regression guardrails:
 - Existing delete/retract behavior must continue to work for self messages, own streams, other streams, and moderator deletes.
 - Existing report behavior must keep the same dialog and request flow.
 - Existing block behavior must not accidentally execute delete/hide/timeout just because those share `moderateLiveChatEndpoint`.
+- Existing block/report visibility rules must not be tightened as part of mod actions.
 - Existing queue/parser deletion handling must remain the source of truth for YouTube-originated delete updates.
 - If a static HyperChat action is unavailable in YouTube's context menu, fail gracefully through `chatUserActionResponse` instead of guessing another endpoint.
 
