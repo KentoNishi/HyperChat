@@ -66,6 +66,7 @@ const buildInnertubeHeaders = (ytcfg: YtCfg) => {
   const visitorId = (ytcfg as any)?.data_?.VISITOR_DATA ?? ytcfg.data_.INNERTUBE_CONTEXT?.client?.visitorData;
   const clientName = (ytcfg as any)?.data_?.INNERTUBE_CLIENT_NAME;
   const clientVersion = (ytcfg as any)?.data_?.INNERTUBE_CLIENT_VERSION;
+  const pageId = (ytcfg as any)?.data_?.DELEGATED_SESSION_ID;
   return {
     headers: {
       'Content-Type': 'application/json',
@@ -74,6 +75,7 @@ const buildInnertubeHeaders = (ytcfg: YtCfg) => {
       ...(visitorId != null ? { 'X-Goog-Visitor-Id': String(visitorId) } : {}),
       ...(clientName != null ? { 'X-Youtube-Client-Name': String(clientName) } : {}),
       ...(clientVersion != null ? { 'X-Youtube-Client-Version': String(clientVersion) } : {}),
+      ...(pageId != null ? { 'X-Goog-PageId': String(pageId) } : {}),
       'X-Origin': currentDomain,
       ...(auth != null ? { Authorization: auth } : {})
     },
@@ -261,7 +263,13 @@ const executeChatAction = async (
       `${encodeURIComponent(message.params)}&pbj=1&key=${apiKey}&prettyPrint=false`;
     const baseContext = ytcfg.data_.INNERTUBE_CONTEXT;
     const heads = buildInnertubeHeaders(ytcfg);
-    const contextMenuContext = JSON.parse(JSON.stringify(baseContext));
+    const cloneBaseContext = (): any => JSON.parse(JSON.stringify(baseContext));
+    const buildContextMenuContext = (): any => {
+      const context = cloneBaseContext();
+      delete context.clickTracking;
+      return context;
+    };
+    const contextMenuContext = buildContextMenuContext();
     const res = await proxyFetch(contextMenuUrl, {
       ...heads,
       body: JSON.stringify({ context: contextMenuContext })
@@ -305,7 +313,8 @@ const executeChatAction = async (
         throw new Error(`Missing service endpoint params for ${prop}`);
       }
       const { clickTrackingParams, [prop]: { params } } = serviceEndpoint;
-      const clonedContext = JSON.parse(JSON.stringify(baseContext));
+      const clonedContext = cloneBaseContext();
+      delete clonedContext.clickTracking;
       if (clickTrackingParams != null) {
         clonedContext.clickTracking = {
           clickTrackingParams
