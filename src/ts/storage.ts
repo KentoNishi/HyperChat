@@ -4,6 +4,7 @@ import type { Writable } from 'svelte/store';
 import { getClient, AvailableLanguages } from 'iframe-translator';
 import type { IframeTranslatorClient, AvailableLanguageCodes } from 'iframe-translator';
 import { ChatReportUserOptions, Theme, YoutubeEmojiRenderMode } from './chat-constants';
+import { formatAuthorName } from './component-utils';
 import { createLiveTLTranslatorClient, shouldUseLiveTLTranslatorBridge } from './ltl-translation';
 import type { Chat } from './typings/chat';
 
@@ -64,7 +65,7 @@ export const focusedSuperchat = writable(null as null | Ytc.ParsedTimedItem);
 export const port = writable(null as null | Chat.Port);
 export const selfChannel = writable(null as null | SimpleUserInfo);
 export const selfChannelId = derived(selfChannel, ($selfChannel) => $selfChannel?.channelId);
-export const selfChannelName = derived(selfChannel, ($selfChannel) => $selfChannel?.name);
+export const selfChannelName = derived(selfChannel, ($selfChannel) => formatAuthorName($selfChannel?.name ?? ''));
 export const reportDialog = writable(null as null | {
   callback: (selection: ChatReportUserOptions) => void;
   optionStore: Writable<null | ChatReportUserOptions>;
