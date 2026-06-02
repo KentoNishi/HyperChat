@@ -114,7 +114,7 @@ const chatLoaded = async (): Promise<void> => {
     };
 
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
-    port.onMessage.addListener(async (msg) => {
+    port.onMessage.addListener(async (msg: Chat.BackgroundMessage | Chat.BackgroundResponse) => {
       const getCookie = (name: string): string => {
         const value = `; ${document.cookie}`;
         const parts = value.split(`; ${name}=`);
