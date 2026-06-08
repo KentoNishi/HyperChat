@@ -14,7 +14,7 @@
   // Smelte's default is `{ duration: 150, easing: quadIn, delay: 150 }` which adds 150ms of dead
   // time before the open animation even starts. Drop the delay so the popup appears immediately.
   const transitionProps = { duration: 120, easing: quadIn, delay: 0 };
-  $: classes = `items-center z-50 rounded p-4 shadow ${bgColor}` +
+  $: classes = `items-center z-50 rounded p-4 shadow hc-dialog-font ${bgColor}` +
     ' max-h-full overflow-y-auto text-xs ' +
     (expandWidth ? 'w-full mx-2 ' : ' ') +
     ($$props.class ?? '');
@@ -33,3 +33,9 @@
   <slot />
   <slot name="actions" slot="actions" />
 </Dialog>
+
+<style>
+  :global(.hc-dialog-font) {
+    font-family: var(--pure-material-font, "Roboto", "Segoe UI", BlinkMacSystemFont, system-ui, -apple-system, sans-serif);
+  }
+</style>

@@ -504,15 +504,14 @@
   };
 </script>
 
-<ReportBanDialog />
-<SuperchatViewDialog />
-
 <svelte:window on:resize={() => {
   scrollToBottom();
   topBarResized();
 }} />
 
 <div class={containerClass} style="font-size: 13px">
+  <ReportBanDialog />
+  <SuperchatViewDialog />
   {#if $enableStickySuperchatBar}
     <StickyBar />
   {/if}
