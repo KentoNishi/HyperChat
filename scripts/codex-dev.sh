@@ -30,7 +30,7 @@ detect_repo_scripts() {
     BUILD_NPM_SCRIPT="build:chrome"
     EXT_PATH="$REPO_ROOT/build/chrome"
     MODE_LABEL="mv3"
-    DEFAULT_TEST_URL="https://www.youtube.com/watch?v=jfKfPfyJRdk"
+    DEFAULT_TEST_URL="https://www.youtube.com/watch?v=X4VbdwhkE10"
     return 0
   fi
 
@@ -42,7 +42,7 @@ detect_repo_scripts() {
     BUILD_NPM_SCRIPT="build"
     EXT_PATH="$REPO_ROOT/build"
     MODE_LABEL="mv2"
-    DEFAULT_TEST_URL="https://www.youtube.com/watch?v=5qap5aO4i9A"
+    DEFAULT_TEST_URL="https://www.youtube.com/watch?v=X4VbdwhkE10"
     return 0
   fi
 
@@ -54,7 +54,7 @@ detect_repo_scripts() {
     BUILD_NPM_SCRIPT="build"
     EXT_PATH="$REPO_ROOT/build"
     MODE_LABEL="mv2"
-    DEFAULT_TEST_URL="https://www.youtube.com/watch?v=5qap5aO4i9A"
+    DEFAULT_TEST_URL="https://www.youtube.com/watch?v=X4VbdwhkE10"
     return 0
   fi
 

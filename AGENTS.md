@@ -121,7 +121,7 @@
   - `headless=false` plus `--ozone-platform=headless`
   - extension args: `--disable-extensions-except=<build>` and `--load-extension=<build>`
 - Firefox validation in this environment must set `HOME=/root` before launching browser automation as root, or Firefox exits early with a root/session ownership error.
-- For Firefox runtime checks, prefer `https://www.youtube.com/live_chat?v=jfKfPfyJRdk&is_popout=1` for deterministic chat-frame loading in headless mode.
+- For Firefox runtime checks, prefer `https://www.youtube.com/live_chat?is_popout=1&v=X4VbdwhkE10&continuation=0ofMyAOAARpeQ2lrcUp3b1lWVU5UU2pSbmExWkROazV5ZGtsSk9IVnRlblJtTUU5M0VndFlORlppWkhkb2EwVXhNQm9UNnFqZHVRRU5DZ3RZTkZaaVpIZG9hMFV4TUNBQk1BQSUzRDABggEICAQYAiAAKACIAQGgAfr808_a-JQDqAEAsgEA` for deterministic chat-frame loading in headless mode.
 - Packaged LiveTL Firefox translation is a special case: keep the request bridge in HC, but host the actual translator iframe on the YouTube page side.
 - For LiveTL MV2 (webpack), `iframe-translator`'s `getClient()` is safe to use as long as the bundler rewrites `import.meta.env.DEV` to `false` for `node_modules/iframe-translator/index.js` (otherwise `import.meta.env` can be undefined at runtime).
 
