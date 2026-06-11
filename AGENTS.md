@@ -3,8 +3,8 @@
 ## Branch Discipline
 
 - Make code changes on `mv2` first.
-- `main` is the real MV3 branch now.
-- `mv3` is historical. Do not use it as the normal MV3 source branch for new work or cross-repo sync.
+- `main` is the real MV3 branch.
+- `mv3` is retired. Do not use it as the normal MV3 source branch for new work or cross-repo sync.
 - Do not implement feature/fix work directly on `main`.
 - If a task starts on another branch, switch to `mv2` before editing unless the user explicitly asks otherwise.
 - If a task touches both HyperChat and LiveTL, HyperChat still goes first.
@@ -109,7 +109,7 @@
 ## Testbed URL
 
 - Headless validation should open the same `startUrl` used by `vite.config.ts`.
-- `scripts/codex-dev.sh go-test` now does this automatically (defaulting by detected mode), and `TEST_URL` can override when needed.
+- `scripts/codex-dev.sh go-test` does this automatically (defaulting by detected mode), and `TEST_URL` can override when needed.
 
 ## Cross-Browser Headless Validation Notes
 
