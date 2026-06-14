@@ -17,3 +17,9 @@ body {
   background-color: transparent !important;
   overflow: hidden !important;
 }
+
+html:has(> body > .hyperchat-root) > body.bttv-youtube ~ :not([id]):not([class]):empty {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
