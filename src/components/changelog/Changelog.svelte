@@ -1,12 +1,12 @@
 <ul class="list-disc list-inside">
   <strong>Serving in our latest update:</strong>
   <li>
-    Delete messages (sent or mod)
+    Fix mention highlights
   </li>
   <li>
-    View superchat replies
+    Fix dialog fonts
   </li>
   <li>
-    Fix visual formatting
+    Fix BTTV visual conflicts
   </li>
 </ul>
